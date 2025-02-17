@@ -941,11 +941,13 @@ public partial class Base : IDisposable
         get => _minimumSize;
         set
         {
+            var oldValue = _minimumSize;
             _minimumSize = value;
             if (_innerPanel != null)
             {
                 _innerPanel.MinimumSize = InnerPanelSizeFrom(value);
             }
+            OnMinimumSizeChanged(oldValue, value);
         }
     }
 
@@ -957,11 +959,13 @@ public partial class Base : IDisposable
         get => _maximumSize;
         set
         {
+            var oldValue = _maximumSize;
             _maximumSize = value;
             if (_innerPanel != null)
             {
                 _innerPanel.MaximumSize = InnerPanelSizeFrom(value);
             }
+            OnMaximumSizeChanged(oldValue, value);
         }
     }
 
@@ -2388,6 +2392,13 @@ public partial class Base : IDisposable
     ///     True if bounds changed.
     /// </returns>
     public virtual bool SetBounds(float x, float y, float width, float height) => SetBounds((int) x, (int) y, (int) width, (int) height);
+
+    protected virtual void OnMaximumSizeChanged(Point oldSize, Point newSize)
+    {
+    }
+    protected virtual void OnMinimumSizeChanged(Point oldSize, Point newSize)
+    {
+    }
 
     protected virtual void OnSizeChanged(Point oldSize, Point newSize)
     {
@@ -4144,9 +4155,7 @@ public partial class Base : IDisposable
         Base? next;
         lock (canvas._tabQueue)
         {
-            var hasValid = canvas._tabQueue.Any(
-                control => control is { IsDisabledByTree: false, IsHiddenByTree: false }
-            );
+            var hasValid = canvas._tabQueue.Any(IsNodeValidTabTarget);
             if (!hasValid)
             {
                 return true;
@@ -4188,10 +4197,10 @@ public partial class Base : IDisposable
                     canvas._tabQueue.AddLast(next);
                 }
             }
-            while (next.IsHiddenByTree || next.IsDisabledByTree || !next.IsTabable);
+            while (!IsNodeValidTabTarget(next));
         }
 
-        if (next is { IsTabable: true, IsDisabledByTree: false, IsHiddenByTree: false })
+        if (IsNodeValidTabTarget(next))
         {
             Console.WriteLine($"Focusing {next.ParentQualifiedName} ({next.GetFullishName()})");
             next.Focus(moveMouse: next is not TextBox);
@@ -4201,6 +4210,9 @@ public partial class Base : IDisposable
 
         return true;
     }
+
+    private static bool IsNodeValidTabTarget(Base? node) =>
+        node is { IsDisabledByTree: false, IsHiddenByTree: false, IsTabable: true };
 
     /// <summary>
     ///     Handler for Space keyboard event.
